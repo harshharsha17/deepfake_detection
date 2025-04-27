@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Deepfake Detection System</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f4f7f9;
+            color: #333;
+        }
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        header {
+            background-color: #2c3e50;
+            color: white;
+            padding: 20px 0;
+            text-align: center;
+            border-radius: 5px 5px 0 0;
+        }
+        h1 {
+            margin: 0;
+            font-size: 32px;
+        }
+        .subtitle {
+            font-size: 16px;
+            opacity: 0.8;
+            margin-top: 10px;
+        }
+        .card {
+            background: white;
+            border-radius: 5px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            margin: 20px 0;
+            padding: 20px;
+        }
+        .upload-section {
+            text-align: center;
+            padding: 30px;
+            border: 2px dashed #ccc;
+            border-radius: 5px;
+            margin-bottom: 20px;
+            transition: all 0.3s ease;
+        }
+        .upload-section:hover {
+            border-color: #2c3e50;
+        }
+        .upload-section.drag-over {
+            background-color: #ecf0f1;
+            border-color: #3498db;
+        }
+        #fileInput {
+            display: none;
+        }
+        .upload-btn {
+            background-color: #3498db;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: background-color 0.3s;
+        }
+        .upload-btn:hover {
+            background-color: #2980b9;
+        }
+        #imagePreview {
+            max-width: 100%;
+            max-height: 400px;
+            margin: 20px auto;
+            display: none;
+        }
+        #resultContainer {
+            display: none;
+            text-align: center;
+            margin-top: 20px;
+            padding: 20px;
+            border-radius: 5px;
+        }
+        .result-real {
+            background-color: #d4edda;
+            border: 1px solid #c3e6cb;
+            color: #155724;
+        }
+        .result-fake {
+            background-color: #f8d7da;
+            border: 1px solid #f5c6cb;
+            color: #721c24;
+        }
+        .result-unknown {
+            background-color: #fff3cd;
+            border: 1px solid #ffeeba;
+            color: #856404;
+        }
+        .confidence-meter {
+            width: 100%;
+            height: 20px;
+            background-color: #e9ecef;
+            border-radius: 10px;
+            margin-top: 10px;
+            overflow: hidden;
+        }
+        .confidence-value {
+            height: 100%;
+            border-radius: 10px;
+            transition: width 0.5s ease;
+        }
+        .loader {
+            border: 5px solid #f3f3f3;
+            border-top: 5px solid #3498db;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 20px auto;
+            display: none;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        .instructions {
+            margin-bottom: 20px;
+        }
+        footer {
+            text-align: center;
+            margin-top: 40px;
+            color: #7f8c8d;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Deepfake Detection System</h1>
+            <div class="subtitle">Detect if an image is real or AI-generated</div>
+        </header>
+
+        <div class="card">
+            <div class="instructions">
+                <h2>Instructions</h2>
+                <p>Upload an image to determine if it's a real photo or a deepfake. The system analyzes facial features and image characteristics to make a prediction.</p>
+            </div>
+
+            <div id="uploadSection" class="upload-section">
+                <p>Drag & drop your image here or</p>
+                <input type="file" id="fileInput" accept="image/jpeg, image/png, image/jpg">
+                <button class="upload-btn" onclick="document.getElementById('fileInput').click()">Browse Files</button>
+            </div>
+
+            <div class="loader" id="loader"></div>
+            
+            <img id="imagePreview" alt="Image Preview">
+            
+            <div id="resultContainer">
+                <h2 id="resultText">Analyzing...</h2>
+                <p id="confidenceText"></p>
+                <div class="confidence-meter">
+                    <div class="confidence-value" id="confidenceMeter"></div>
+                </div>
+                <p id="additionalInfo"></p>
+            </div>
+        </div>
+    </div>
+
+    <footer>
+        <p>© 2025 Deepfake Detection System | Powered by TensorFlow</p>
+    </footer>
+
+    <script>
+        // DOM elements
+        const fileInput = document.getElementById('fileInput');
+        const uploadSection = document.getElementById('uploadSection');
+        const imagePreview = document.getElementById('imagePreview');
+        const resultContainer = document.getElementById('resultContainer');
+        const resultText = document.getElementById('resultText');
+        const confidenceText = document.getElementById('confidenceText');
+        const confidenceMeter = document.getElementById('confidenceMeter');
+        const additionalInfo = document.getElementById('additionalInfo');
+        const loader = document.getElementById('loader');
+
+        // Handle drag and drop
+        ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+            uploadSection.addEventListener(eventName, preventDefaults, false);
+        });
+
+        function preventDefaults(e) {
+            e.preventDefault();
+            e.stopPropagation();
+        }
+
+        ['dragenter', 'dragover'].forEach(eventName => {
+            uploadSection.addEventListener(eventName, highlight, false);
+        });
+
+        ['dragleave', 'drop'].forEach(eventName => {
+            uploadSection.addEventListener(eventName, unhighlight, false);
+        });
+
+        function highlight() {
+            uploadSection.classList.add('drag-over');
+        }
+
+        function unhighlight() {
+            uploadSection.classList.remove('drag-over');
+        }
+
+        uploadSection.addEventListener('drop', handleDrop, false);
+
+        function handleDrop(e) {
+            const dt = e.dataTransfer;
+            const files = dt.files;
+            if (files.length) {
+                fileInput.files = files;
+                handleFiles(files);
+            }
+        }
+
+        // Handle file selection
+        fileInput.addEventListener('change', function() {
+            handleFiles(this.files);
+        });
+
+        function handleFiles(files) {
+            if (files.length) {
+                const file = files[0];
+                if (file.type.match('image.*')) {
+                    displayImage(file);
+                    analyzeImage(file);
+                } else {
+                    alert('Please upload an image file (JPG, PNG)');
+                }
+            }
+        }
+
+        function displayImage(file) {
+            const reader = new FileReader();
+            
+            reader.onload = function(e) {
+                imagePreview.src = e.target.result;
+                imagePreview.style.display = 'block';
+            }
+            
+            reader.readAsDataURL(file);
+        }
+
+        function analyzeImage(file) {
+            // Show loader
+            loader.style.display = 'block';
+            resultContainer.style.display = 'none';
+            
+            // Prepare form data for API call
+            const formData = new FormData();
+            formData.append('image', file);
+            
+            // In a real application, this would be an API endpoint that processes the image
+            // For demo purposes, we'll simulate a response after a delay
+            setTimeout(() => {
+                // Simulate API response (random classification for demonstration)
+                const randomValue = Math.random();
+                const isFake = randomValue > 0.5;
+                const confidence = 0.5 + (Math.random() * 0.5); // Random confidence between 50% and 100%
+                
+                displayResults({
+                    classification: isFake ? "FAKE" : "REAL",
+                    confidence: confidence,
+                    raw_score: isFake ? 1 - confidence : confidence
+                });
+                
+                loader.style.display = 'none';
+            }, 2000); // Simulate 2 second processing time
+            
+            // In a real application, you would use fetch API:
+            /*
+            fetch('/api/predict', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                displayResults(data);
+                loader.style.display = 'none';
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('An error occurred during the analysis.');
+                loader.style.display = 'none';
+            });
+            */
+        }
+
+        function displayResults(results) {
+            resultContainer.style.display = 'block';
+            
+            // Update result text and styling
+            if (results.classification === "REAL") {
+                resultText.textContent = "This image appears to be REAL";
+                resultContainer.className = "result-real";
+                confidenceMeter.style.backgroundColor = "#28a745";
+            } else {
+                resultText.textContent = "This image appears to be FAKE (AI-generated)";
+                resultContainer.className = "result-fake";
+                confidenceMeter.style.backgroundColor = "#dc3545";
+            }
+            
+            // Update confidence text and meter
+            const confidencePercent = (results.confidence * 100).toFixed(2);
+            confidenceText.textContent = `Confidence: ${confidencePercent}%`;
+            confidenceMeter.style.width = `${confidencePercent}%`;
+            
+            // Additional information based on confidence level
+            if (results.confidence > 0.85) {
+                additionalInfo.textContent = "High confidence in this prediction.";
+            } else if (results.confidence > 0.65) {
+                additionalInfo.textContent = "Moderate confidence in this prediction.";
+            } else {
+                additionalInfo.textContent = "Low confidence in this prediction. The image may have characteristics of both real and fake images.";
+                resultContainer.className = "result-unknown";
+                confidenceMeter.style.backgroundColor = "#ffc107";
+            }
+        }
+    </script>
+</body>
+</html>
